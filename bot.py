@@ -1,99 +1,75 @@
-import os
-import sys
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ContextTypes
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, MessageHandler, Filters
+import logging
+
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
-# Configuration
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '7837000233:AAEJSMzMxsK46FlqfdXmW9F1WD_ANDuocbo')
+# Bot configuration
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # Get from @BotFather
 TWITTER_URL = "https://x.com/salejames299"
-CHANNEL_URL = "https://t.me/tactical_osint"
-GROUP_URL = "https://t.me/iFROGYOUofiicial"
-WEBHOOK_URL = "https://MevdefiBot-3.onrender.com"  # Your specific Render URL
+CHANNEL_URL = "https://t.me/StayXRewards"
+GROUP_URL = "https://t.me/Bilcoinofficialuk"
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[
-        InlineKeyboardButton("✅ I Completed All Tasks", callback_data="tasks_done")
-    ]]
+def start(update: Update, context: CallbackContext) -> None:
+    user = update.effective_user
+    keyboard = [
+        [InlineKeyboardButton("Join Channel", url=CHANNEL_URL)],
+        [InlineKeyboardButton("Join Group", url=GROUP_URL)],
+        [InlineKeyboardButton("Follow Twitter", url=TWITTER_URL)],
+        [InlineKeyboardButton("I've Completed All Tasks", callback_data='verify')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(
-        "🎉 *Welcome to Mr Kay Birdrop Test Bot!*\n\n"
-        "📋 *Complete these tasks to earn 100 SOL:*\n"
-        f"1. Follow [Twitter]({TWITTER_URL})\n"
-        f"2. Join [Telegram Channel]({CHANNEL_URL})\n"
-        f"3. Join [Telegram Group]({GROUP_URL})\n\n"
-        "_Note: This is a test bot. No real SOL will be sent_",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
-        disable_web_page_preview=True
+    update.message.reply_text(
+        f"Hi {user.first_name}! To qualify for Mr Kay's Airdrop:\n\n"
+        "1. Join our Telegram channel\n"
+        "2. Join our Telegram group\n"
+        "3. Follow our Twitter\n"
+        "4. Click the button below after completing all tasks\n\n"
+        "You'll then be asked to submit your SOL wallet address to receive your 100 SOL reward!",
+        reply_markup=reply_markup
     )
 
-async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    await query.answer()
+    query.answer()
     
-    if query.data == "tasks_done":
-        await query.edit_message_text(
-            "🪙 *Send your Solana wallet address now!*\n\n"
-            "Example: `DJ8v4jP4JZf7Q2WkUqCx3bTm9g4a1BvCxW`\n\n"
-            "_We won't store your address_",
-            parse_mode="Markdown"
+    if query.data == 'verify':
+        query.edit_message_text(
+            "Well done! Hope you didn't cheat the system 😉\n\n"
+            "Please send me your SOL wallet address now to receive your 100 SOL reward."
         )
-        context.user_data["awaiting_address"] = True
+        context.user_data['awaiting_wallet'] = True
 
-async def handle_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("awaiting_address"):
-        sol_address = update.message.text.strip()
-        
-        if 32 <= len(sol_address) <= 44:
-            await update.message.reply_text(
-                f"🎉 *Congratulations!* 🎉\n\n"
-                "You passed Mr Kay Birdrop's test!\n"
-                f"💸 100 SOL is on its way to:\n`{sol_address}`\n\n"
-                "⚠️ Hope you didn't cheat the system!\n"
-                "🚨 _Note: This is a testing bot. No real SOL will be sent_",
-                parse_mode="Markdown"
+def handle_message(update: Update, context: CallbackContext) -> None:
+    if 'awaiting_wallet' in context.user_data and context.user_data['awaiting_wallet']:
+        wallet_address = update.message.text.strip()
+        # Basic SOL wallet validation (simple length check)
+        if len(wallet_address) == 44 and wallet_address.isalnum():
+            update.message.reply_text(
+                "🎉 Congratulations! You've passed Mr Kay's Airdrop call!\n\n"
+                "100 SOL is on its way to your address!\n\n"
+                "Note: This is a testing bot, no actual SOL will be sent."
             )
+            context.user_data['awaiting_wallet'] = False
         else:
-            await update.message.reply_text(
-                "⚠️ *Invalid Solana address!*\n\n"
-                "Please send a valid SOL address (32-44 characters)\n"
-                "Example: `DJ8v4jP4JZf7Q2WkUqCx3bTm9g4a1BvCxW`",
-                parse_mode="Markdown"
-            )
-        context.user_data["awaiting_address"] = False
+            update.message.reply_text("This doesn't look like a valid SOL wallet address. It should be 44 characters long with letters and numbers only. Please try again.")
 
-def main():
-    try:
-        if not BOT_TOKEN or len(BOT_TOKEN) < 30:
-            print("❌ Invalid Telegram bot token")
-            sys.exit(1)
-            
-        print("🤖 Starting MevdefiBot-3...")
-        app = Application.builder().token(BOT_TOKEN).build()
-        
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CallbackQueryHandler(handle_button))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_address))
-        
-        port = int(os.environ.get('PORT', 8443))
-        
-        print(f"🌐 Webhook URL: {WEBHOOK_URL}")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            webhook_url=WEBHOOK_URL,
-            secret_token=os.environ.get("SECRET_TOKEN", "DEFAULT_SECRET")
-        )
-    except Exception as e:
-        print(f"🔥 Error: {str(e)}")
-        sys.exit(1)
+def main() -> None:
+    updater = Updater(TOKEN)
+    dispatcher = updater.dispatcher
 
-if __name__ == "__main__":
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CallbackQueryHandler(button))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
     main()
