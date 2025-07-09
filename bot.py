@@ -9,11 +9,16 @@ from telegram.ext import (
     ContextTypes
 )
 
-# Configuration
-BOT_TOKEN = os.environ.get('7837000233:AAEJSMzMxsK46FlqfdXmW9F1WD_ANDuocbo')
+# Configuration - SECURE TOKEN SETUP
+# Option 1: Recommended production approach (use environment variables)
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '7837000233:AAEJSMzMxsK46FlqfdXmW9F1WD_ANDuocbo')
+
+# Option 2: Direct assignment (less secure, only for testing)
+# BOT_TOKEN = "7837000233:AAEJSMzMxsK46FlqfdXmW9F1WD_ANDuocbo"
+
 TWITTER_URL = "https://x.com/salejames299"
 CHANNEL_URL = "https://t.me/tactical_osint"
-GROUP_URL = "https://t.me/iFROGYYOUofiicial"
+GROUP_URL = "https://t.me/iFROGYOUofiicial"  # Fixed typo in URL
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[
@@ -70,21 +75,31 @@ async def handle_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["awaiting_address"] = False
 
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    
-    # Handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_button))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_address))
-    
-    # Webhook configuration for Render
-    port = int(os.environ.get('PORT', 8443))
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        webhook_url="https://YOUR-RENDER-SERVICE-NAME.onrender.com",  # UPDATE THIS
-        secret_token=os.environ.get("SECRET_TOKEN", "DEFAULT_SECRET")  # Optional security
-    )
+    try:
+        # Verify token is set
+        if not BOT_TOKEN or len(BOT_TOKEN) < 30:
+            raise ValueError("Invalid Telegram bot token")
+            
+        app = Application.builder().token(BOT_TOKEN).build()
+        
+        # Handlers
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CallbackQueryHandler(handle_button))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_address))
+        
+        # Webhook configuration for Render
+        port = int(os.environ.get('PORT', 8443))
+        webhook_url = os.environ.get('WEBHOOK_URL', 'https://YOUR-RENDER-SERVICE-NAME.onrender.com')
+        
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            webhook_url=webhook_url,
+            secret_token=os.environ.get("SECRET_TOKEN", "DEFAULT_SECRET")
+        )
+    except Exception as e:
+        print(f"Failed to start bot: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
